@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego de Memoria</title>
+    <!-- Enlace a Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" xintegrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <!-- Enlace a Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif; /* Usar Inter como fuente principal */
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .game-container {
+            background-color: #ffffff;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            text-align: center;
+            max-width: 900px;
+            width: 100%;
+        }
+        .game-board {
+            display: grid;
+            gap: 20px; /* Espacio entre tarjetas para una separación clara */
+            margin: 20px auto;
+            /* Usamos auto-fit para que las columnas se ajusten y las tarjetas sean anchas y lado a lado */
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* Min-width ajustado para hacerlas más anchas */
+            justify-content: center; /* Centra el grid si hay espacio extra, pero las tarjetas llenarán el ancho */
+            align-items: center;
+        }
+        /* Estilos para la tarjeta individual */
+        .card {
+            border: 2px solid #ced4da; /* Borde para mayor separación visual */
+            transition: all 0.3s ease;
+            overflow: hidden; /* Asegura que los bordes redondeados se apliquen correctamente con la sombra */
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Sombra para resaltar cada ficha */
+            width: 100%;
+            aspect-ratio: 1 / 1; /* Esto hace que la tarjeta sea cuadrada */
+            display: flex; /* Para centrar contenido interno */
+            justify-content: center;
+            align-items: center;
+        }
+        .card:hover {
+            transform: translateY(-3px); /* Efecto hover sutil */
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+        }
+
+        .card-inner {
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            position: relative;
+        }
+        /* Cuando la tarjeta se voltea, rota 180 grados */
+        .card.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden; /* Oculta la parte trasera de los elementos */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 1.1em;
+            text-align: center;
+            padding: 10px;
+            box-sizing: border-box;
+            color: #343a40;
+            cursor: pointer;
+            word-wrap: break-word; /* Asegura que el texto largo se rompa en varias líneas */
+            white-space: normal; /* Asegura que el texto se ajuste dentro de la tarjeta */
+        }
+        .card-back {
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: #fff;
+            transform: rotateY(0deg); /* Inicia visible (con el signo de pregunta) */
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
+            transition: transform 0.6s;
+            cursor: pointer;
+        }
+        .card-front {
+            background-color: #e9ecef;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05); /* Sombra más sutil en el frente */
+            overflow: hidden; /* Oculta el texto que desborda */
+            transform: rotateY(180deg); /* Inicia oculta (la parte de la respuesta) */
+            transition: transform 0.6s;
+        }
+        /* Las tarjetas emparejadas deben quedarse en el estado 'flipped' */
+        /* Eliminamos las transformaciones específicas de .matched porque .flipped ya maneja la orientación */
+        /* .card.matched .card-back y .card.matched .card-front ya no necesitan transforms aquí */
+
+        /* Animación de vibración para pares incorrectos */
+        @keyframes vibrate {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-5px) rotate(1deg); }
+            50% { transform: translateX(5px) rotate(-1deg); }
+            75% { transform: translateX(-5px) rotate(1deg); }
+            100% { transform: translateX(0); }
+        }
+        .card.vibrate .card-inner {
+            animation: vibrate 0.3s ease-in-out;
+        }
+
+        /* Ajustes responsivos para pantallas más pequeñas (máximo 768px de ancho) */
+        @media (max-width: 768px) {
+            .game-board {
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* Min-width ajustado para móvil */
+            }
+            .card-front, .card-back {
+                font-size: 0.9em; /* Fuente más pequeña en móvil */
+            }
+            .game-container {
+                padding: 15px;
+            }
+        }
+        /* Ajustes responsivos para pantallas muy pequeñas (máximo 576px de ancho) */
+        @media (max-width: 576px) {
+            .game-board {
+                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); /* Min-width ajustado para muy móvil */
+            }
+            .card-front, .card-back {
+                font-size: 0.8em; /* Fuente aún más pequeña */
+                padding: 5px;
+            }
+        }
+
+        .btn-game-action {
+            margin: 10px 5px;
+            border-radius: 8px;
+            font-weight: bold;
+            padding: 10px 20px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        .btn-game-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+        }
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+            border-color: #dc3545;
+        }
+        .btn-danger:hover {
+            background-color: #bd2130;
+            border-color: #bd2130;
+        }
+        .btn-success {
+            background-color: #28a745;
+            border-color: #28a745;
+        }
+        .btn-success:hover {
+            background-color: #1e7e34;
+            border-color: #1e7e34;
+        }
+
+        /* La pantalla de selección de temática es visible inicialmente, pero con solo una opción */
+        .theme-selection {
+            display: block; /* Visible por defecto */
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            background-color: #f8f9fa;
+        }
+        .theme-selection h3 {
+            margin-bottom: 20px;
+            color: #343a40;
+        }
+        .theme-selection .btn-group .btn {
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        /* Ocultar el botón de Informática y Programación */
+        #btn-informatica {
+            display: none;
+        }
+
+
+        /* Estilos para el diploma final */
+        .diploma-modal .modal-content {
+            border-radius: 15px;
+            background: linear-gradient(to right, #f8f9fa, #e9ecef);
+            padding: 30px;
+            text-align: center;
+        }
+        .diploma-modal .modal-header {
+            border-bottom: none;
+            padding-bottom: 0;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        .diploma-modal .modal-header .btn-close {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+        }
+        .diploma-modal .modal-title {
+            color: #28a745;
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        .diploma-modal .modal-body p {
+            font-size: 1.3em;
+            color: #343a40;
+            margin-bottom: 10px;
+        }
+        .diploma-modal .modal-body strong {
+            color: #007bff;
+        }
+        .diploma-modal .modal-footer {
+            border-top: none;
+            justify-content: center;
+            padding-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1 class="mb-4 text-primary">Juego de Memoria</h1>
+
+        <!-- Pantalla de Selección de Temática - Visible con solo la opción de Salud Ocupacional -->
+        <div id="theme-selection-screen" class="theme-selection">
+            <h3>Selecciona una temática para jugar:</h3>
+            <div class="btn-group" role="group" aria-label="Selección de Temática">
+                <!-- Botón de Informática oculto por CSS -->
+                <button type="button" class="btn btn-primary btn-game-action" id="btn-informatica" onclick="selectTheme('informatica')">Informática y Programación</button>
+                <button type="button" class="btn btn-success btn-game-action" onclick="selectTheme('saludOcupacional')">Salud Ocupacional</button>
+            </div>
+        </div>
+
+        <!-- Pantalla de Juego (oculta al inicio) -->
+        <div id="game-screen" style="display:none;">
+            <div class="d-flex justify-content-around mb-3">
+                <div class="p-2">
+                    <h5>Nivel: <span id="current-level">1</span></h5>
+                </div>
+                <div class="p-2">
+                    <h5>Tiempo: <span id="timer">00:00</span></h5>
+                </div>
+                <div class="p-2">
+                    <h5>Errores: <span id="errors">0</span></h5>
+                </div>
+            </div>
+
+            <div id="game-board" class="game-board">
+                <!-- Las tarjetas se insertarán dinámicamente aquí por JavaScript -->
+            </div>
+
+            <div class="d-flex justify-content-center mt-4">
+                <button id="surrender-button" class="btn btn-danger btn-game-action">Rendirse</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal del Diploma Final -->
+    <div class="modal fade diploma-modal" id="diplomaModal" tabindex="-1" aria-labelledby="diplomaModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="diplomaModalLabel">¡Felicidades, Campeón de la Memoria!</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Has completado todos los niveles del juego.</p>
+                    <p>Tu tiempo total fue: <strong id="final-time"></strong></p>
+                    <p>Errores cometidos: <strong id="final-errors"></strong></p>
+                    <p>¡Eres un genio de la memoria!</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary btn-game-action" id="play-again-button" data-bs-dismiss="modal">Jugar de Nuevo</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enlace a Bootstrap JS (Bundle) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" xintegrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+    <script>
+        // Objeto que contiene los datos del juego para cada temática y nivel
+        const gameData = {
+            "informatica": {
+                1: [
+                    { term: "HTML", definition: "Lenguaje para estructurar contenido web." },
+                    { term: "CSS", definition: "Estilos para la apariencia de páginas web." },
+                    { term: "JavaScript", definition: "Lenguaje de programación para interactividad web." },
+                ],
+                2: [
+                    { term: "Frontend", definition: "Parte de una aplicación con la que el usuario interactúa." },
+                    { term: "Backend", definition: "Servidor, base de datos y lógica de la aplicación." },
+                    { term: "API", definition: "Interfaz que permite la comunicación entre software." },
+                    { term: "Git", definition: "Sistema de control de versiones distribuido." },
+                ],
+                3: [
+                    { term: "Framework", definition: "Estructura que facilita el desarrollo de aplicaciones." },
+                    { term: "Librería", definition: "Conjunto de funciones preescritas para tareas comunes." },
+                    { term: "Base de Datos", definition: "Colección organizada de información digital." },
+                    { term: "Algoritmo", definition: "Secuencia de pasos para resolver un problema." },
+                    { term: "Debugging", definition: "Proceso de identificar y corregir errores en el código." },
+                ]
+            },
+            "saludOcupacional": {
+                1: [
+                    { term: "Ergonomía", definition: "Adapta el trabajo a las capacidades del trabajador." },
+                    { term: "EPP", definition: "Equipo de protección personal para riesgos laborales." },
+                    { term: "Riesgo", definition: "Probabilidad de daño a la salud en el trabajo." },
+                ],
+                2: [
+                    { term: "Incidente", definition: "Evento que pudo causar daño, pero no lo hizo." },
+                    { term: "Accidente", definition: "Suceso inesperado con lesión o daño en el trabajo." },
+                    { term: "Peligro", definition: "Fuente o situación con potencial de daño." },
+                    { term: "Pausa Activa", definition: "Breves descansos para recuperar energía laboral." },
+                ],
+                3: [
+                    { term: "SGSST", definition: "Sistema de Gestión de Seguridad y Salud en el Trabajo." },
+                    { term: "COPASST", definition: "Comité Paritario de Seguridad y Salud en el Trabajo." },
+                    { term: "Matriz de Riesgos", definition: "Tabla para identificar y evaluar peligros laborales." },
+                    { term: "Enfermedad Laboral", definition: "Afección causada directamente por el trabajo." },
+                    { term: "Acto Inseguro", definition: "Acción o práctica que aumenta el riesgo laboral." },
+                ]
+            }
+        };
+
+        // Variables globales del juego
+        let currentLevel = 1;
+        let errors = 0;
+        let timerInterval;
+        let startTime;
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let gameActive = false; // Controla si se pueden voltear cartas
+        let selectedThemeData; // Almacena los datos de la temática seleccionada
+        let totalTime = 0; // Para acumular el tiempo total entre niveles
+        let totalErrors = 0; // Para acumular los errores totales entre niveles
+
+        // Referencias a elementos del DOM
+        const themeSelectionScreen = document.getElementById('theme-selection-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const gameBoard = document.getElementById('game-board');
+        const currentLevelSpan = document.getElementById('current-level');
+        const timerSpan = document.getElementById('timer');
+        const errorsSpan = document.getElementById('errors');
+        const surrenderButton = document.getElementById('surrender-button');
+        const diplomaModal = new bootstrap.Modal(document.getElementById('diplomaModal'));
+        const finalTimeSpan = document.getElementById('final-time');
+        const finalErrorsSpan = document.getElementById('final-errors');
+        const playAgainButton = document.getElementById('play-again-button');
+
+        /**
+         * Función para seleccionar la temática y empezar el juego.
+         * @param {string} theme - La clave de la temática ('informatica' o 'saludOcupacional').
+         */
+        function selectTheme(theme) {
+            selectedThemeData = gameData[theme];
+            themeSelectionScreen.style.display = 'none'; // Oculta la pantalla de selección
+            gameScreen.style.display = 'block'; // Muestra la pantalla del juego
+            resetGame(true); // Reinicia el juego y lo empieza desde el nivel 1 con la temática seleccionada
+        }
+
+        /**
+         * Inicializa el juego para el nivel actual.
+         * Se encarga de mezclar las tarjetas, renderizar el tablero y resetear los contadores si es un nuevo juego.
+         * @param {boolean} isNewGame - Indica si se está iniciando un juego completamente nuevo.
+         */
+        function initGame(isNewGame = false) {
+            // Reiniciar contadores solo si es un juego nuevo o si se rinde
+            if (isNewGame) {
+                currentLevel = 1;
+                totalTime = 0;
+                totalErrors = 0;
+            }
+            errors = 0;
+            matchedPairs = 0;
+            flippedCards = [];
+            gameActive = true;
+            stopTimer(); // Asegurarse de que el temporizador esté detenido antes de iniciar uno nuevo
+            startTime = null; // Reiniciar el tiempo de inicio
+            timerSpan.textContent = '00:00'; // Resetear el display del temporizador
+
+            currentLevelSpan.textContent = currentLevel;
+            errorsSpan.textContent = errors;
+
+            // Limpiar el tablero actual
+            gameBoard.innerHTML = '';
+            gameBoard.className = 'game-board'; // Resetear clases de nivel
+            gameBoard.classList.add(`level-${currentLevel}`);
+
+            // Obtener los pares de términos/definiciones para el nivel actual
+            const currentLevelPairs = selectedThemeData[currentLevel];
+            const cards = [];
+
+            // Crear las tarjetas para términos y definiciones
+            currentLevelPairs.forEach(pair => {
+                cards.push({ id: pair.term, content: pair.term, type: 'term' });
+                cards.push({ id: pair.term, content: pair.definition, type: 'definition' });
+            });
+
+            // Mezclar las tarjetas
+            shuffleArray(cards);
+
+            // Crear los elementos HTML de las tarjetas
+            cards.forEach(cardData => {
+                gameBoard.appendChild(createCard(cardData));
+            });
+        }
+
+        /**
+         * Mezcla aleatoriamente un array.
+         * @param {Array} array - El array a mezclar.
+         */
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]]; // Intercambiar elementos
+            }
+        }
+
+        /**
+         * Crea un elemento de tarjeta HTML.
+         * @param {Object} cardData - Objeto con los datos de la tarjeta (id, content, type).
+         * @returns {HTMLElement} El elemento div de la tarjeta.
+         */
+        function createCard(cardData) {
+            const card = document.createElement('div');
+            // Las clases 'card', 'p-0', 'rounded-3', 'd-flex', 'align-items-stretch' son suficientes para el estilo y alineación.
+            card.classList.add('card', 'p-0', 'rounded-3', 'd-flex', 'align-items-stretch');
+            card.setAttribute('data-id', cardData.id);
+            card.setAttribute('data-type', cardData.type);
+
+            const cardInner = document.createElement('div');
+            cardInner.classList.add('card-inner', 'w-100', 'h-100');
+
+            const cardFront = document.createElement('div');
+            cardFront.classList.add('card-front', 'rounded-3');
+            cardFront.textContent = cardData.content;
+
+            const cardBack = document.createElement('div');
+            cardBack.classList.add('card-back', 'rounded-3');
+            // Icono de pregunta de Bootstrap Icons para la parte trasera de las tarjetas
+            cardBack.innerHTML = '<i class="bi bi-question-circle-fill" style="font-size: 2.5em;"></i>';
+
+            cardInner.appendChild(cardFront);
+            cardInner.appendChild(cardBack);
+            card.appendChild(cardInner);
+
+            card.addEventListener('click', flipCard);
+            return card;
+        }
+
+        /**
+         * Voltea una tarjeta al hacer clic.
+         * @param {Event} event - El evento de clic.
+         */
+        function flipCard(event) {
+            // Si el juego no está activo o ya hay dos cartas volteadas o la carta ya está volteada/matched, no hacer nada
+            if (!gameActive || flippedCards.length >= 2 || event.currentTarget.classList.contains('flipped') || event.currentTarget.classList.contains('matched')) {
+                return;
+            }
+
+            // Iniciar el temporizador al voltear la primera tarjeta
+            if (!startTime) {
+                startTime = Date.now();
+                startTimer();
+            }
+
+            const card = event.currentTarget;
+            card.classList.add('flipped');
+            flippedCards.push(card);
+
+            // Si se han volteado dos tarjetas, verificar si coinciden
+            if (flippedCards.length === 2) {
+                gameActive = false; // Bloquear nuevas selecciones temporalmente
+                setTimeout(checkForMatch, 3000); // Pausa de 3 segundos
+            }
+        }
+
+        /**
+         * Verifica si las dos tarjetas volteadas forman un par correcto.
+         */
+        function checkForMatch() {
+            const [card1, card2] = flippedCards;
+            const id1 = card1.getAttribute('data-id');
+            const id2 = card2.getAttribute('data-id');
+            const type1 = card1.getAttribute('data-type');
+            const type2 = card2.getAttribute('data-type');
+
+            if (id1 === id2 && type1 !== type2) { // Coinciden si tienen el mismo ID y son de diferente tipo (término/definición)
+                card1.classList.add('matched');
+                card2.classList.add('matched');
+                matchedPairs++;
+
+                // Limpiar tarjetas volteadas para el siguiente turno
+                flippedCards = [];
+                gameActive = true; // Habilitar nuevas selecciones
+
+                // Verificar si el nivel ha sido completado
+                if (matchedPairs === selectedThemeData[currentLevel].length) {
+                    stopTimer(); // Detener el temporizador del nivel
+                    totalTime += (Date.now() - startTime); // Acumular el tiempo del nivel
+                    advanceLevel();
+                }
+            } else {
+                // Par incorrecto: vibrar y voltear hacia abajo
+                errors++;
+                totalErrors++; // Acumular errores
+                errorsSpan.textContent = errors;
+
+                card1.classList.add('vibrate');
+                card2.classList.add('vibrate');
+
+                setTimeout(() => {
+                    card1.classList.remove('vibrate', 'flipped');
+                    card2.classList.remove('vibrate', 'flipped');
+                    flippedCards = [];
+                    gameActive = true; // Habilitar nuevas selecciones
+                }, 1000); // Duración de la vibración + tiempo para voltear
+            }
+        }
+
+        /**
+         * Avanza al siguiente nivel o muestra el diploma final.
+         */
+        function advanceLevel() {
+            if (currentLevel < 3) {
+                currentLevel++;
+                startTime = null; // Resetear startTime para el nuevo nivel
+                initGame(); // Iniciar el siguiente nivel
+            } else {
+                // Juego completado: mostrar diploma
+                showDiploma();
+            }
+        }
+
+        /**
+         * Inicia el temporizador del juego.
+         */
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const minutes = Math.floor(elapsed / 60000);
+                const seconds = Math.floor((elapsed % 60000) / 1000);
+                timerSpan.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        /**
+         * Detiene el temporizador del juego.
+         */
+        function stopTimer() {
+            clearInterval(timerInterval);
+        }
+
+        /**
+         * Reinicia el juego completamente al Nivel 1.
+         * @param {boolean} keepTheme - Si es true, mantiene la temática seleccionada. Si es false, vuelve a la pantalla de selección de temática.
+         */
+        function resetGame(keepTheme = false) {
+            stopTimer();
+            currentLevel = 1;
+            errors = 0;
+            totalErrors = 0;
+            totalTime = 0;
+            startTime = null;
+            flippedCards = [];
+            matchedPairs = 0;
+            gameActive = false;
+
+            if (!keepTheme) {
+                // Si no se mantiene la temática, se vuelve a la pantalla de selección de tema
+                gameScreen.style.display = 'none';
+                themeSelectionScreen.style.display = 'block';
+            } else {
+                initGame(true); // Inicia un juego nuevo para la temática actual
+            }
+        }
+
+        /**
+         * Muestra el mensaje final (diploma) con las estadísticas del juego.
+         */
+        function showDiploma() {
+            stopTimer(); // Asegurarse de que el temporizador esté detenido
+            const finalMinutes = Math.floor(totalTime / 60000);
+            const finalSeconds = Math.floor((totalTime % 60000) / 1000);
+
+            finalTimeSpan.textContent = `${finalMinutes.toString().padStart(2, '0')}:${finalSeconds.toString().padStart(2, '0')}`;
+            finalErrorsSpan.textContent = totalErrors;
+            diplomaModal.show();
+        }
+
+        // Event Listeners
+        surrenderButton.addEventListener('click', () => {
+            resetGame(false); // Vuelve a la pantalla de selección de temática
+            diplomaModal.hide(); // Asegurarse de que el modal esté oculto si se rinde
+        });
+        playAgainButton.addEventListener('click', () => {
+            resetGame(true); // Reinicia el juego manteniendo la temática actual
+        });
+
+        // Al cargar el DOM, aseguramos que la pantalla de juego esté oculta y la de selección visible
+        // Y el botón de Informática oculto.
+        document.addEventListener('DOMContentLoaded', () => {
+            gameScreen.style.display = 'none'; // La pantalla del juego está oculta al inicio
+            themeSelectionScreen.style.display = 'block'; // La pantalla de selección está visible
+        });
+
+    </script>
+</body>
+</html>
